@@ -78,30 +78,7 @@ export async function fetchVaultSchemaVersion(env: Env, vaultId: string): Promis
 	}
 }
 
-/**
- * @param census when true, ask the room for the CRDT footprint census.  It is
- *   opt-in because it walks every struct and re-encodes the document, which is
- *   too expensive for the plugin's periodic debug poll.
- */
-export async function fetchVaultDebug(
-	env: Env,
-	vaultId: string,
-	census = false,
-): Promise<Response> {
+export async function fetchVaultDebug(env: Env, vaultId: string): Promise<Response> {
 	const stub = await getServerByName(env.YAOS_SYNC, vaultId);
-	const target = census
-		? "https://internal/__yaos/debug?census=1"
-		: "https://internal/__yaos/debug";
-	return await stub.fetch(target);
+	return await stub.fetch("https://internal/__yaos/debug");
 }
-
-export async function compactVault(env: Env, vaultId: string): Promise<Response> {
-	const stub = await getServerByName(env.YAOS_SYNC, vaultId);
-	return await stub.fetch("https://internal/__yaos/compact", { method: "POST" });
-}
-
-/**
- * Rebuild the room's in-memory document to discard accumulated V8 rope
- * structures.  Admin-gated: it replaces the live document, and while the swap
- * is transparent to clients it is not something to expose casually.
- */

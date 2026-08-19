@@ -1,10 +1,11 @@
 import { sha256Hex } from "../hex";
-import { buildMobileSetupUrl, renderSetupQrDataUrl } from "../setupQr";
 import type { StoredServerConfig } from "../config";
 import {
+	SERVER_MAX_SCHEMA_VERSION,
+	SERVER_MIGRATION_REQUIRED,
 	SERVER_MIN_PLUGIN_VERSION,
+	SERVER_MIN_SCHEMA_VERSION,
 	SERVER_RECOMMENDED_PLUGIN_VERSION,
-	SERVER_SCHEMA_VERSION,
 	SERVER_VERSION,
 } from "../version";
 import { json } from "./http";
@@ -241,7 +242,9 @@ export function getCapabilities(
 	serverVersion: string;
 	minPluginVersion: string | null;
 	recommendedPluginVersion: string | null;
-	schemaVersion: number;
+	minSchemaVersion: number | null;
+	maxSchemaVersion: number | null;
+	migrationRequired: boolean;
 	updateProvider: UpdateProvider | null;
 	updateRepoUrl: string | null;
 	updateRepoBranch: string | null;
@@ -257,7 +260,9 @@ export function getCapabilities(
 		serverVersion: SERVER_VERSION,
 		minPluginVersion: SERVER_MIN_PLUGIN_VERSION,
 		recommendedPluginVersion: SERVER_RECOMMENDED_PLUGIN_VERSION,
-		schemaVersion: SERVER_SCHEMA_VERSION,
+		minSchemaVersion: SERVER_MIN_SCHEMA_VERSION,
+		maxSchemaVersion: SERVER_MAX_SCHEMA_VERSION,
+		migrationRequired: SERVER_MIGRATION_REQUIRED,
 		updateProvider: options.includePrivateUpdateMetadata ? (config?.updateProvider ?? null) : null,
 		updateRepoUrl: options.includePrivateUpdateMetadata ? (config?.updateRepoUrl ?? null) : null,
 		updateRepoBranch: options.includePrivateUpdateMetadata ? (config?.updateRepoBranch ?? null) : null,
@@ -286,17 +291,6 @@ export async function handleClaimRoute(req: Request, env: Env, authState: AuthSt
 
 	const token = body.token.trim();
 	const vaultId = typeof body.vaultId === "string" ? body.vaultId.trim() : "";
-	let mobileSetupQrDataUrl: string;
-	try {
-		// Render before the durable claim write. A renderer failure must not leave
-		// an otherwise functional server irreversibly claimed with a failed setup UI.
-		mobileSetupQrDataUrl = await renderSetupQrDataUrl(
-			buildMobileSetupUrl(url.origin, token, vaultId),
-		);
-	} catch {
-		return json({ error: "setup QR generation failed" }, 500);
-	}
-
 	const tokenHash = await hashToken(token);
 	const claimed = await claimServerConfig(env, tokenHash);
 	if (!claimed) {
@@ -317,7 +311,6 @@ export async function handleClaimRoute(req: Request, env: Env, authState: AuthSt
 		ok: true,
 		host: url.origin,
 		obsidianUrl: buildObsidianSetupUrl(url.origin, token, vaultId || undefined),
-		mobileSetupQrDataUrl,
 		capabilities: getCapabilities(
 			{ mode: "claim", claimed: true, tokenHash },
 			env,

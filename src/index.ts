@@ -18,7 +18,7 @@ import { corsPreflight, html, json, withCors } from "./routes/http";
 import { handleSnapshotRoute } from "./routes/snapshots";
 import { handleSyncSocketRoute, parseSyncPath } from "./routes/syncSocket";
 import { handleTicketRoute } from "./routes/ticket";
-import { fetchVaultDebug, fetchVaultDocument, recordVaultTrace, compactVault } from "./routes/trace";
+import { fetchVaultDebug, fetchVaultDocument, recordVaultTrace } from "./routes/trace";
 import type { AuthState, AuthStateCached, Env } from "./routes/types";
 
 const LOG_PREFIX = "[yaos-sync:worker]";
@@ -74,7 +74,7 @@ const VALID_VAULT_RESOURCES = new Set(["auth", "debug", "blobs", "snapshots"]);
 //   1. Add the handler in server/src/routes/<resource>.ts
 //   2. Add the resource to VALID_VAULT_RESOURCES below (if it's new)
 //   3. Add the route shape to isKnownVaultRouteShape / isKnownSnapshotRouteShape
-//   4. Add a trap-env test to tests/server/server-route-classification-runtime.ts
+//   4. Add a trap-env test to tests/server-route-classification-runtime.ts
 //      asserting that the valid shape reaches auth and the invalid shapes
 //      (wrong method, unknown subpath) still return 404 without DO access
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,9 +130,7 @@ function isKnownVaultRouteShape(method: string, resource: string, rest: string[]
 			return method === "POST" && rest.length === 1 && rest[0] === "ticket";
 
 		case "debug":
-			if (method === "GET" && rest.length === 1 && rest[0] === "recent") return true;
-			if (method === "POST" && rest.length === 1 && rest[0] === "compact") return true;
-			return false;
+			return method === "GET" && rest.length === 1 && rest[0] === "recent";
 
 		case "blobs": {
 			if (rest.length !== 1) return false;
@@ -253,7 +251,7 @@ function logWorkerRequest(args: {
 	if (args.route.kind === "not-found" && Math.random() >= 0.01) {
 		return;
 	}
-	console.debug(
+	console.info(
 		"[yaos-worker] request " + JSON.stringify({
 			route: routeBucket(args.route),
 			method: args.method,
@@ -405,10 +403,7 @@ const worker = {
 			if (authFailure) {
 				response = withCors(authFailure);
 			} else if (resource === "debug" && req.method === "GET" && rest[0] === "recent") {
-				const census = new URL(req.url).searchParams.get("census") === "1";
-				response = withCors(await fetchVaultDebug(env, vaultId, census));
-			} else if (resource === "debug" && req.method === "POST" && rest[0] === "compact") {
-				response = withCors(await compactVault(env, vaultId));
+				response = withCors(await fetchVaultDebug(env, vaultId));
 			} else if (resource === "auth" && rest[0] === "ticket" && req.method === "POST") {
 				response = withCors(await handleTicketRoute(req, authState, vaultId, json, env));
 			} else if (resource === "blobs") {

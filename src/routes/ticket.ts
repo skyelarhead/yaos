@@ -30,6 +30,7 @@
  */
 
 import { base64UrlToBytes, bytesToBase64Url, randomBase64Url } from "../base64url";
+import { json } from "./http";
 import type { AuthState, Env } from "./types";
 
 // ---------------------------------------------------------------------------

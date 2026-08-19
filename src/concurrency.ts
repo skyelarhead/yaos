@@ -1,15 +1,12 @@
 /**
- * Canonical home for code shared by the Obsidian plugin and the Worker.
+ * Bounded-concurrency parallel map.
  *
- * It lives under server/src/ rather than a repo-root shared/ because
- * build-server-release.mjs copies only paths under server/ into the user's
- * standalone server repo, and server/tsconfig.json pins rootDir to "src" — a
- * root-level shared/ tree would typecheck locally and then be missing from
- * every shipped server zip. The plugin reaches it through the "@shared/*"
- * tsconfig path alias (see the root tsconfig.json), which esbuild honours.
+ * SOURCE OF TRUTH: src/shared/concurrency.ts
+ *
+ * This file exists because the server build boundary (server/tsconfig.json)
+ * cannot import from the client src/ tree. The function body must remain
+ * identical to the canonical implementation. If you change one, change both.
  */
-
-/** Bounded-concurrency parallel map. Results keep input order. */
 export async function mapWithConcurrency<T, R>(
 	items: readonly T[],
 	limit: number,
